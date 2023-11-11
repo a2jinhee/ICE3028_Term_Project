@@ -14,19 +14,6 @@
 #include "rasterize_stroke.h"
 #include "imu_provider.h"
 
-const float gyroscopeThreshold = 300;
-const int numSamples = 64;
-
-int samplesRead = numSamples;const char* GESTURES[] = {
-  "Door",
-  "Window",
-  "Light"
-};
-
-#define NUM_GESTURES (sizeof(GESTURES) / sizeof(GESTURES[0]))
-int nbGesture = 0;
-int oldNbGesture = 0;
-int gestureTriggered;
 
 namespace{
   // Constants for image rasterization
@@ -50,18 +37,20 @@ namespace{
   const char* labels[label_count] = {"0", "1", "2"};
 }
 
-
 void setup() {
-  Serial.begin(9600);
+  
+  Serial.begin(9600)
+  while (!Serial)
 
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
     while (1);
   }  
   
-  // initialize the BLE hardware- start scanning for peripheral
+  // INITIALIZE BLE // 
   BLE.begin(); 
 
+  // TFLITE SETUP //
   // Set up logging. Google style is to avoid globals or statics because of
   // lifetime uncertainty, but since this has a trivial destructor it's okay.
   static tflite::MicroErrorReporter micro_error_reporter;  // NOLINT
@@ -120,46 +109,18 @@ void setup() {
   }
 }
 
-void loop() {  
-  const char* classify_name = name();
-  num++;
-  String a;  
-  
-  switch(Device_flag){  
-    case 0: Serial.println("Door Selected"); a = "19b1"; break;
-    case 1: Serial.println("Window Selected"); a = "19b2"; break;
-    case 2: Serial.println("LED Selected"); a = "19b3"; break;
-    default: Serial.println("Init State"); a = "19B10003-E8F2-537E-4F6C-D104768BBDDS"; break;
-  }  
-  
-  BLE.scanForUuid(a);  
-  BLEDevice peripheral = BLE.available();
-  String myString = peripheral.localName();
-  const char* charArray = myString.c_str();  
-  
-  if (peripheral) {
-    Serial.print("Found ");
-    Serial.print(peripheral.address());
-    Serial.print(" '");
-    Serial.print(peripheral.localName());
-    Serial.print("' ");
-    Serial.print(peripheral.advertisedServiceUuid());
-    Serial.println();    
-    BLE.stopScan();    
-    Serial.println("Connecting ...");    
-    
-    if (peripheral.connect()) {
-        Serial.println("Connected");
-    }
-    else {
-      Serial.println("Failed to connect!");
-      return;
-    }
 
+int gesture[2];
+
+void loop() {
+
+  // GET GESTURE TWO TIMES //
+  for (int i=0; i<2; i++){
     const bool data_available = IMU.accelerationAvailable() || IMU.gyroscopeAvailable();
     if (!data_available) {
       return;
     }
+
     int accelerometer_samples_read;
     int gyroscope_samples_read;
     ReadAccelerometerAndGyroscope(&accelerometer_samples_read, &gyroscope_samples_read);
@@ -180,7 +141,7 @@ void loop() {
     }
 
     // Wait for a gesture to be done
-    if (done_just_triggered) {     //to do.  When Swtich clicked Operate 
+    if (done_just_triggered) { 
       // Rasterize the gesture
       RasterizeStroke(stroke_points, *stroke_transmit_length, 0.6f, 0.6f, raster_width, raster_height, raster_buffer);
 
@@ -207,13 +168,51 @@ void loop() {
         }
       }
       TF_LITE_REPORT_ERROR(error_reporter, "Found %s (%d)", labels[max_index], max_score);
-      Device_flag = max_index;
+    }
+    // STORE INFERENCE RESULT TO gesture array //
+    gesture[i] = max_index; 
+  }
+    
+  switch(gesture[0]){  
+    case 0: Serial.println("Door Selected");
+            if gesture[1]==0:   a = "19b1"; break;
+            // else if gesture[1]==1: a = "19c1"; break;
+            // else if gesture[1]==2:  a = "19d1"; break; 
+    case 1: Serial.println("Window Selected"); 
+            if gesture[1]==0:   a = "19b2"; break;
+            // else if gesture[1]==1: a = "19c2"; break;
+            // else if gesture[1]==2:  a = "19d2"; break; 
+    case 2: Serial.println("LED Selected"); 
+            a = "19b3"; break;
+    default:  Serial.println("Init State");
+            a = "19B10003-E8F2-537E-4F6C-D104768BBDDS"; break;
+  }
+  
+  BLE.scanForUuid(a);  
+  BLEDevice peripheral = BLE.available(); 
+  
+  if (peripheral) {
+    Serial.print("Found ");
+    Serial.print(peripheral.address());
+    Serial.print(" '");
+    Serial.print(peripheral.localName());
+    Serial.print("' ");
+    Serial.print(peripheral.advertisedServiceUuid());
+    Serial.println();    
+    BLE.stopScan();    
+    Serial.println("Connecting ...");    
+    
+    if (peripheral.connect()) {
+        Serial.println("Connected");
+    }
+    else {
+      Serial.println("Failed to connect!");
+      return;
     }
     
     Serial.println("Gesture operate");
     delay(10000);
     peripheral.disconnect();
   }
-
 
 }

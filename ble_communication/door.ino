@@ -1,55 +1,75 @@
 #include <ArduinoBLE.h>
+#include <Servo.h>
 
-BLEService doorService("19b1"); // uuid 변경하기// Bluetooth® Low Energy LED Switch Characteristic - custom 128-bit UUID, read and writable by central
-BLEByteCharacteristic switchCharacteristic("19b1", BLERead | BLEWrite); //uuid 변경하기const int doorPin = LED_BUILTIN; // door 관련된 핀으로 변경하기
-int flag = 0;
-int flag2 = 0;
+BLEService doorService("19b1"); 
+BLEByteCharacteristic doorChar("19b1", BLERead | BLEWrite); 
+
+Servo myServo;
+// Pin number for the LED
+const int ledPin = 13;
 
 void setup() {
   Serial.begin(9600);
-  while (!Serial);  // set LED pin to output mode
-  pinMode(doorPin, OUTPUT);  //door pin output이겠지?  // begin initialization
+  while (!Serial);  
+
+  // HARDWARE SETUP - CHANGE
+  myServo.attach(9);
+  // Set the LED pin as an output - DEBUG
+  // pinMode(ledPin, OUTPUT); 
+
   if (!BLE.begin()) {
-    Serial.println("starting Bluetooth® Low Energy module failed!");    while (1);
-  }  // set advertised local name and service UUID:
+    Serial.println("starting Bluetooth® Low Energy module failed!");    
+    while (1);
+  } 
+
   BLE.setLocalName("Door");  
   BLE.setAdvertisedService(doorService);  // add the characteristic to the service
-  doorService.addCharacteristic(switchCharacteristic);  // add service
+  doorService.addCharacteristic(doorChar);  // add service
   BLE.addService(doorService);  // set the initial value for the characeristic:
-  switchCharacteristic.writeValue(0);  // start advertising
-  BLE.advertise();  Serial.println("BLE Door Peripheral");
+
+  doorChar.writeValue(0);
+  BLE.advertise();  
+  Serial.println("BLE Door Peripheral");
 }
 
 void loop() {
-  // listen for Bluetooth® Low Energy peripherals to connect:
+  
   BLEDevice central = BLE.central();  // if a central is connected to peripheral:
   if (central) {
     Serial.print("Connected to central: ");
     // print the central's MAC address:
-    Serial.println(central.address());    // while the central is still connected to peripheral:
+    Serial.println(central.address());
+
+    // Read the current position of the servo
+    int servoPosition = myServo.read();
+    Serial.print("Current Servo Position: ");
+    Serial.println(servoPosition);
+
     while (central.connected()) {
-      // if the remote device wrote to the characteristic,
-      // use the value to control the LED:
-      if (flag == 0){
-        if (flag2 == 0){
-          Serial.println("Door open");
-          flag2++;
-        }
-      }      //dooropen();                       // door open 함수 만들어야함.
-      if (flag == 1){
-        if (flag2 == 0){
-          Serial.println("Door close");
-          flag2++;
-        }
+      
+      // Open/Close door with current servo position - CHANGE
+      // if less than 90, assume open and close
+      // if bigger than 90, assume close and open
+      if (servoPosition<90){
+        myServo.write(0);
+        delay(1000); 
       }
-      //doorclose();                      // door close 함수 만들어야함.
-    }    // when the central disconnects, print it out:
+      else if (servoPosition>90){
+        myServo.write(180);
+        delay(1000);
+      }
+
+      // DEBUG 
+      // // Turn the LED on
+      // digitalWrite(ledPin, HIGH);
+      // delay(1000);  // Wait for 1 second
+
+      // // Turn the LED off
+      // digitalWrite(ledPin, LOW);
+      // delay(1000);  // Wait for 1 second
+    } 
+
     Serial.print("Disconnected from central: ");
     Serial.println(central.address());
-    flag2 = 0;
-    flag++;
-    if (flag >= 2){
-      flag = 0;
-    }
   }
 }

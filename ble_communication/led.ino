@@ -1,10 +1,9 @@
 #include <ArduinoBLE.h>
 #include <Servo.h>
 
-BLEService windowService("19b2"); 
-BLEByteCharacteristic windowChar("19b2", BLERead | BLEWrite); 
+BLEService myService("19b3"); 
+BLEByteCharacteristic myChar("19b3", BLERead | BLEWrite); 
 
-Servo myServo;
 // Pin number for the LED
 const int ledPin = 13;
 
@@ -13,23 +12,22 @@ void setup() {
   while (!Serial);  
 
   // HARDWARE SETUP - CHANGE
-  myServo.attach(9);
-  // Set the LED pin as an output - DEBUG
-  // pinMode(ledPin, OUTPUT); 
+  // Set the LED pin as an output
+  pinMode(ledPin, OUTPUT); 
 
   if (!BLE.begin()) {
     Serial.println("starting Bluetooth® Low Energy module failed!");    
     while (1);
   } 
 
-  BLE.setLocalName("Window");  
-  BLE.setAdvertisedService(windowService);  // add the characteristic to the service
-  windowService.addCharacteristic(windowChar);  // add service
-  BLE.addService(windowService);  // set the initial value for the characeristic:
+  BLE.setLocalName("LED");  
+  BLE.setAdvertisedService(myService);  // add the characteristic to the service
+  myService.addCharacteristic(myChar);  // add service
+  BLE.addService(myService);  // set the initial value for the characeristic:
 
-  windowChar.writeValue(0);
+  myChar.writeValue(0);
   BLE.advertise();  
-  Serial.println("BLE Window Peripheral");
+  Serial.println("BLE LED Peripheral");
 }
 
 void loop() {
@@ -40,22 +38,20 @@ void loop() {
     // print the central's MAC address:
     Serial.println(central.address());
 
-    // Read the current position of the servo
-    int servoPosition = myServo.read();
-    Serial.print("Current Servo Position: ");
-    Serial.println(servoPosition);
+    // Read the current state of the LED
+    int ledState = digitalRead(ledPin);
+    Serial.print("LED State: ");
+    Serial.println(ledState);
 
     while (central.connected()) {
       
-      // Open/Close window with current servo position - CHANGE
-      // if less than 90, assume open and close
-      // if bigger than 90, assume close and open
-      if (servoPosition<90){
-        myServo.write(0);
+      // Turn on/off led with current state - CHANGE
+      if (ledState){
+        digitalWrite(ledPin, LOW);
         delay(1000); 
       }
-      else if (servoPosition>90){
-        myServo.write(180);
+      else {
+        digitalWrite(ledPin, HIGH);
         delay(1000);
       }
 
