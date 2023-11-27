@@ -1,19 +1,19 @@
 #include <ArduinoBLE.h>
-#include <Servo.h>
 
 BLEService windowService("19b2"); 
 BLEByteCharacteristic windowChar("19b2", BLERead | BLEWrite); 
 
-Servo myServo;
-// Pin number for the LED
+// pin number for the LED
 const int ledPin = 13;
+// pin number for dc motor
+int motorPin1 = 13;
+int motorPin2 = 12;
+int flag = 0;  
 
 void setup() {
   Serial.begin(9600);
   while (!Serial);  
 
-  // HARDWARE SETUP - CHANGE
-  myServo.attach(9);
   // Set the LED pin as an output - DEBUG
   // pinMode(ledPin, OUTPUT); 
 
@@ -30,6 +30,11 @@ void setup() {
   windowChar.writeValue(0);
   BLE.advertise();  
   Serial.println("BLE Window Peripheral");
+
+  // dc motor setup
+  pinMode(motorPin1, OUTPUT);
+  pinMode(motorPin2, OUTPUT);
+
 }
 
 void loop() {
@@ -40,25 +45,28 @@ void loop() {
     // print the central's MAC address:
     Serial.println(central.address());
 
-    // Read the current position of the servo
-    int servoPosition = myServo.read();
-    Serial.print("Current Servo Position: ");
-    Serial.println(servoPosition);
-
     while (central.connected()) {
       
-      // Open/Close window with current servo position - CHANGE
-      // if less than 90, assume open and close
-      // if bigger than 90, assume close and open
-      if (servoPosition<90){
-        myServo.write(0);
-        delay(1000); 
-      }
-      else if (servoPosition>90){
-        myServo.write(180);
+      // Open/Close window with current servo position
+      if (flag%2 == 0){
+        digitalWrite(motorPin1, HIGH);
+        digitalWrite(motorPin2, LOW);
+        // time = length of string
+        delay(7000);
+        digitalWrite(motorPin1, LOW);
+        digitalWrite(motorPin2, LOW);
         delay(1000);
       }
-
+      else{
+        digitalWrite(motorPin1, LOW);
+        digitalWrite(motorPin2, HIGH);
+        // time = length of string
+        delay(7000);
+        digitalWrite(motorPin1, LOW);
+        digitalWrite(motorPin2, LOW);
+        delay(1000);
+      }
+      
       // DEBUG 
       // // Turn the LED on
       // digitalWrite(ledPin, HIGH);
@@ -71,5 +79,6 @@ void loop() {
 
     Serial.print("Disconnected from central: ");
     Serial.println(central.address());
+    flag += 1; 
   }
 }
